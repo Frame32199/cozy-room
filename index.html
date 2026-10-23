@@ -1477,7 +1477,14 @@ function beginDrag(src,e0,ev0){
   body.classList.add('removing');
   let cand=null;
   const sh=shc.getContext('2d');
-  const drawShadow=()=>{ sh.clearRect(0,0,SW,SH); shc.style.zIndex=''; if(!cand) return;
+  // ช่องที่วางได้ทั้งห้อง (เขียวจาง) — คิดครั้งเดียวตอนเริ่มลาก · ห้องที่ของเยอะจะได้รู้ว่าเหลือที่ตรงไหน
+  const spots=[];
+  if(kind==='floor'||kind==='rug'){ const fl=it?it.flip:false, {fw,fd}=fp(key,fl), seen=new Set();
+    for(const [k] of GEO.cells){ const [x,y]=k.split(',').map(Number); if(!fitsFloor(key,x,y,fl,ignore)) continue;
+      for(let i=x;i<x+fw;i++) for(let j=y;j<y+fd;j++){ const q=i+','+j; if(!seen.has(q)){ seen.add(q); spots.push([i,j]); } } } }
+  const drawSpots=()=>{ if(!spots.length) return; sh.save(); sh.fillStyle='rgba(79,174,106,.30)';
+    for(const [x,y] of spots){ const z=liftAt(x,y); poly({x0:x,x1:x+1,y0:y,y1:y+1},z); } sh.restore(); };
+  const drawShadow=()=>{ sh.clearRect(0,0,SW,SH); shc.style.zIndex=''; drawSpots(); if(!cand) return;
     if(cand.on!=null){ const hz=+(els.get(cand.on)?.el.style.zIndex||20); shc.style.zIndex=hz+1; }
     else if(kind!=='wall'){ const bz=platZ.get(floorAt(cand.gx,cand.gy)); if(bz) shc.style.zIndex=bz+2; }   // เงาบนพื้นยก: อยู่เหนือชั้นพื้นยก   // วางบนผิวโต๊ะ: เงาต้องอยู่เหนือโต๊ะ ไม่งั้นโต๊ะบัง
     sh.fillStyle=cand.ok?'rgba(79,174,106,.55)':'rgba(226,86,107,.55)';
