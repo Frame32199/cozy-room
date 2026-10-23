@@ -1614,10 +1614,18 @@ function beginDrag(src,e0,ev0){
   if(kind==='floor'||kind==='rug'){ const fl=it?it.flip:false, {fw,fd}=fp(key,fl), seen=new Set();
     for(const [k] of GEO.cells){ const [x,y]=k.split(',').map(Number); if(!fitsFloor(key,x,y,fl,ignore)) continue;
       for(let i=x;i<x+fw;i++) for(let j=y;j<y+fd;j++){ const q=i+','+j; if(!seen.has(q)){ seen.add(q); spots.push([i,j]); } } } }
-  const drawSpots=()=>{ if(!spots.length) return; sh.save(); sh.fillStyle='rgba(79,174,106,.30)';
+  // ของชิ้นเล็ก: ผิวโต๊ะ/ชั้น/หลุมเตาทุกจุดที่ว่าง ขึ้นเขียวจาง (บนผิวจริง ยกตามความสูงผิว) + ช่องพื้นว่าง
+  const tops=[];
+  if(kind==='small'){ for(const o of items){ if(ignore.has(o.uid)) continue; const hz=itemLift(o);
+      for(const r of surfsOf(o)) for(let x=Math.floor(r.x0);x<r.x1;x++) for(let y=Math.floor(r.y0);y<r.y1;y++) if(cellOn(o,r,x,y)&&freeOnHost(o,x,y,ignore)) tops.push({x0:x,x1:x+1,y0:y,y1:y+1,z:r.z+hz,hz:o});
+      for(const sp of spotsOf(o)) if(freeOnHost(o,Math.round((sp.x-.5)*100)/100,Math.round((sp.y-.5)*100)/100,ignore)) tops.push({sp,z:sp.z+hz}); }
+    for(const [k] of GEO.cells){ const [x,y]=k.split(',').map(Number); if(fitsFloor(key,x,y,false,ignore)) spots.push([x,y]); } }
+  const drawTops=()=>{ if(!tops.length) return; sh.save(); sh.fillStyle='rgba(79,174,106,.38)';
+    for(const t of tops){ if(t.sp){ const p=scr(t.sp.x,t.sp.y); sh.beginPath(); sh.ellipse(p.x,p.y-t.z,CW*.42,CW*.42*ISO,0,0,7); sh.fill(); } else poly(t,t.z); } sh.restore(); };
+  const drawSpots=()=>{ drawTops(); if(!spots.length) return; sh.save(); sh.fillStyle='rgba(79,174,106,.30)';
     for(const [x,y] of spots){ const z=liftAt(x,y); poly({x0:x,x1:x+1,y0:y,y1:y+1},z); } sh.restore(); };
-  const drawShadow=()=>{ sh.clearRect(0,0,SW,SH); shc.style.zIndex=''; drawSpots(); if(!cand) return;
-    if(cand.on!=null){ const hz=+(els.get(cand.on)?.el.style.zIndex||20); shc.style.zIndex=hz+1; }
+  const drawShadow=()=>{ sh.clearRect(0,0,SW,SH); shc.style.zIndex=tops.length?'990':''; drawSpots(); if(!cand) return;   // ของเล็ก: ชั้นเงาอยู่เหนือเฟอร์นิเจอร์ ไม่งั้นผิวโต๊ะบังเขียว
+    if(cand.on!=null){ const hz=+(els.get(cand.on)?.el.style.zIndex||20); if(!tops.length) shc.style.zIndex=hz+1; }
     else if(kind!=='wall'){ const bz=platZ.get(floorAt(cand.gx,cand.gy)); if(bz) shc.style.zIndex=bz+2; }   // เงาบนพื้นยก: อยู่เหนือชั้นพื้นยก   // วางบนผิวโต๊ะ: เงาต้องอยู่เหนือโต๊ะ ไม่งั้นโต๊ะบัง
     sh.fillStyle=cand.ok?'rgba(79,174,106,.55)':'rgba(226,86,107,.55)';
     let b; if(kind==='wall'){ // ของติดผนัง: เงาเป็นสี่เหลี่ยมบนผนัง (เอียงตามผนัง) กว้างเท่าของ สูงเท่าของ
@@ -1663,14 +1671,14 @@ function beginDrag(src,e0,ev0){
     cand=compute(ev);
     if(ghost){ ghost.style.left=(ev.clientX-d[3]*S/2)+'px'; ghost.style.top=(ev.clientY-d[4]*S+off.y*S)+'px'; }
     apply(); drawShadow(); body.classList.toggle('over',overTrash(ev)); };
-  const finish=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); window.removeEventListener('pointercancel',up); dragCancel=null;
+  const finish=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); window.removeEventListener('pointercancel',pc); document.removeEventListener('touchmove',tm,{capture:true}); document.removeEventListener('touchend',te,{capture:true}); document.removeEventListener('touchcancel',te,{capture:true}); dragCancel=null;
     sh.clearRect(0,0,SW,SH); shc.style.zIndex=''; body.classList.remove('removing','over','picking'); ghost&&ghost.remove();
     if(it){ els.get(it.uid)?.el.classList.remove('dragging'); kids.forEach(k=>els.get(k.uid)?.el.classList.remove('dragging')); } };
   const revert=()=>{ if(!it) return; const dx=orig.gx-it.gx, dy=orig.gy-it.gy; Object.assign(it,orig); for(const k of kids){ k.gx+=dx||0; k.gy+=dy||0; place(k); } place(it); };
   const up=ev=>{ finish();
     if(ev.type==='pointercancel'){ revert(); return; }
     if(overTrash(ev)){ if(it){ pushUndo(before); const n=d[0]; removeItem(it); commit(); toast('เก็บ'+n+'เข้ากล่องแล้ว',1600); } return; }
-    if(!it && ev.target?.closest?.('#sheet')) return;
+    if(!it && document.elementFromPoint(ev.clientX,ev.clientY)?.closest?.('#sheet')) return;   // ปล่อยบนกล่องของ = ยกเลิก · ใช้จุดที่นิ้วอยู่จริง (นิ้ว: ev.target ติดอยู่ที่ช่องในกล่องตลอด → เคยทิ้งของเงียบ ๆ ทุกครั้งบนมือถือ)
     if(!cand){ revert(); return; }
     if(!cand.ok){ revert(); toast('ตรงนั้นวางไม่ได้ ลองที่ว่างสีเขียวนะ',1600); return; }
     pushUndo(before);
@@ -1678,7 +1686,14 @@ function beginDrag(src,e0,ev0){
     else apply();
     anim(els.get(it.uid).el,'boing'); if(kind!=='wall') dust(it); commit(); };
   dragCancel=()=>{ finish(); revert(); };
-  window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
+  /* มือถือ: เบราว์เซอร์มักแย่งท่าลากไปเลื่อนจอ (pointercancel) โดยเฉพาะลากจากกล่องของที่เลื่อนแนวนอนได้
+     → ตามนิ้วต่อด้วย touch events เอง (กันเลื่อนจอด้วย preventDefault) แล้ววางตอนยกนิ้ว · เมาส์ pointercancel ยังยกเลิกเหมือนเดิม */
+  let lastT=null; const tev=t=>({clientX:t.clientX,clientY:t.clientY,buttons:1,pointerType:'touch',type:'touchmove',target:document.elementFromPoint(t.clientX,t.clientY)});
+  const tm=e=>{ const t=e.touches[0]; if(!t) return; e.preventDefault(); lastT=tev(t); mv(lastT); };
+  const te=e=>{ const t=e.changedTouches[0]; const ev=t?tev(t):lastT; if(!ev) return finish(); up({...ev,type:'touchend',buttons:0}); };
+  const pc=ev=>{ if(ev.pointerType==='touch') return; up(ev); };
+  window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up); window.addEventListener('pointercancel',pc);
+  if(ev0.pointerType==='touch'){ document.addEventListener('touchmove',tm,{capture:true,passive:false}); document.addEventListener('touchend',te,{capture:true}); document.addEventListener('touchcancel',te,{capture:true}); }
   mv(ev0);
 }
 
