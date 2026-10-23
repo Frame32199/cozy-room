@@ -796,10 +796,19 @@ const srcOf=k=>DEFS[k].src||IMG+k+'.png';   // ภาพที่ดัดเข
    วัดด้วย tools/surf-probe.py · กลับด้าน = สลับแกน x↔y · ช่องที่วางได้ = ช่องที่จุดกลางอยู่ในสี่เหลี่ยม (ของกลม: อยู่ในวงกลมด้วย) */
 function surfsOf(o){ const S=(DEFS[o.key][6]||{}).surf; if(!S) return [];
   return S.map(([x0,y0,x1,y1,z])=>o.flip?{x0:o.gx+y0,y0:o.gy+x0,x1:o.gx+y1,y1:o.gy+x1,z}:{x0:o.gx+x0,y0:o.gy+y0,x1:o.gx+x1,y1:o.gy+y1,z}); }
-function cellOn(o,r,cx,cy){ const ux=cx+.5, uy=cy+.5; if(ux<r.x0||ux>r.x1||uy<r.y0||uy>r.y1) return false;
+// ช่องวางของเล็ก: ตัวของ (กว้าง ~0.7 ช่อง) ต้องอยู่บนผิวทั้งชิ้น → จุดกลางช่องต้องห่างขอบผิว ≥ SURF_M (เดิมแค่จุดกลางอยู่ในผิว ของริมหลังยื่นเลยขอบ)
+const SURF_M=.3;
+function cellOn(o,r,cx,cy){ const ux=cx+.5, uy=cy+.5; const mx=Math.max(0,Math.min(SURF_M,(r.x1-r.x0-1)/2)), my=Math.max(0,Math.min(SURF_M,(r.y1-r.y0-1)/2));   // ผิวเล็ก (สตูล) ลดระยะลง ให้ยังวางได้
+  if(ux<r.x0+mx||ux>r.x1-mx||uy<r.y0+my||uy>r.y1-my) return false;
+  if(DEFS[o.key].spots&&spotsOf(o).some(sp=>Math.hypot(sp.x-ux,sp.y-uy)<.9)) return false;   // ช่องที่ทับหลุมเตา: วางได้เฉพาะที่จุดวาง
   if(DEFS[o.key].round){ const b=boxOf(o); if(Math.hypot(ux-(b.x0+b.x1)/2,uy-(b.y0+b.y1)/2)>(b.x1-b.x0)/2) return false; } return true; }
 function surfAt(o,cx,cy){ for(const r of surfsOf(o)) if(cellOn(o,r,cx,cy)) return r.z; return null; }
-const zOn=(host,gx,gy)=>{ const z=surfAt(host,gx,gy); return z!=null?z:(surfsOf(host)[0]||{z:0}).z; };
+/* จุดวาง (spots): ตำแหน่งเฉพาะบนผิว เช่นหลุมเตาแก๊ส · d.spots=[[x,y,z],...] นับจากมุมหลังฐาน (ภาพยังไม่กลับด้าน) · ตั้งใน surf-edit.html → surfs.json
+   ของเล็กบนจุดวาง: gx,gy = จุด−0.5 (เศษได้) ให้กลางของตรงจุดพอดี */
+function spotsOf(o){ const S=DEFS[o.key]&&DEFS[o.key].spots; if(!S) return [];
+  return S.map(([x,y,z])=>o.flip?{x:o.gx+y,y:o.gy+x,z}:{x:o.gx+x,y:o.gy+y,z}); }
+const spotAt=(host,gx,gy)=>spotsOf(host).find(s=>Math.abs(s.x-gx-.5)<.02&&Math.abs(s.y-gy-.5)<.02);
+const zOn=(host,gx,gy)=>{ const sp=spotAt(host,gx,gy); if(sp) return sp.z; const z=surfAt(host,gx,gy); return z!=null?z:(surfsOf(host)[0]||{z:0}).z; };
 
 const $ = s => document.querySelector(s);
 const stage=$('#stage'), holder=$('#holder'), body=document.body, cvs=$('#bgc'), shc=$('#shadow');
@@ -887,7 +896,7 @@ function sortAll(){
   out.forEach((n,i)=>{ const z=20+i*4; if(n.el) n.el.style.zIndex=z; if(n.it) zOfUid.set(n.it.uid,z); if(n.plat!=null) platZ.set(n.plat,z); });
   for(const it of items){ const r=els.get(it.uid); if(!r) continue; const k=DEFS[it.key][2];
     if(k==='rug') r.el.style.zIndex=platZ.has(blk(it))?platZ.get(blk(it))+1:6; else if(k==='wall') r.el.style.zIndex=4;
-    else if(it.on!=null) r.el.style.zIndex=(zOfUid.get(it.on)||20)+1+((it.gx+it.gy)%2); }
+    else if(it.on!=null) r.el.style.zIndex=(zOfUid.get(it.on)||20)+1+((Math.floor(it.gx)+Math.floor(it.gy))%2); }   // floor: ของบนจุดวางพิกัดเป็นเศษ zIndex ต้องเป็นจำนวนเต็ม
 }
 
 /* ================= ของในบ้าน ================= */
@@ -1033,7 +1042,10 @@ function fitsFloor(key,gx,gy,flip,ignore=new Set()){
 function hostAt(lx,ly,ignore){ // ของเล็ก: หาโต๊ะที่นิ้วชี้อยู่ (คิดความสูงผิวโต๊ะ)
   let best=null;
   for(const o of items){ if(ignore.has(o.uid)) continue; const b=boxOf(o);
-    const hz=itemLift(o); for(const r of surfsOf(o)){ const {gx,gy}=toCell(lx,ly+r.z+hz), cx=Math.floor(gx), cy=Math.floor(gy);
+    const hz=itemLift(o);
+    for(const sp of spotsOf(o)){ const p=scr(sp.x,sp.y), d=Math.hypot(p.x-lx,p.y-sp.z-hz-ly);   // จุดวาง (หลุมเตา): ใกล้นิ้วพอ = ดูดเข้าจุด · ชนะผิวปกติ
+      if(d<CW*.75){ const key=(b.x0+b.y0)*1000+sp.z+500-d; if(!best||key>best.k) best={host:o,b,gx:Math.round((sp.x-.5)*100)/100,gy:Math.round((sp.y-.5)*100)/100,k:key,spot:1}; } }
+    for(const r of surfsOf(o)){ const {gx,gy}=toCell(lx,ly+r.z+hz), cx=Math.floor(gx), cy=Math.floor(gy);
       if(!cellOn(o,r,cx,cy)) continue;
       // ซ้อนกันหลายชิ้น: เลือกชิ้นที่อยู่หน้าสุด แล้วผิวที่สูงสุด
       const key=(b.x0+b.y0)*1000+r.z; if(!best || key>best.k) best={host:o,b,gx:cx,gy:cy,k:key}; } }
@@ -1614,6 +1626,7 @@ function beginDrag(src,e0,ev0){
     if(cand.on!=null){ const host=items.find(o=>o.uid===cand.on), hz=itemLift(host), e=zOn(host,cand.gx,cand.gy)+hz, keep=sh.fillStyle;
       sh.fillStyle=cand.ok?'rgba(79,174,106,.22)':'rgba(226,86,107,.22)';
       for(const r of surfsOf(host)) for(let x=Math.floor(r.x0);x<r.x1;x++) for(let y=Math.floor(r.y0);y<r.y1;y++) if(cellOn(host,r,x,y)) poly({x0:x,x1:x+1,y0:y,y1:y+1},r.z+hz);
+      for(const sp of spotsOf(host)){ const p=scr(sp.x,sp.y); sh.beginPath(); sh.ellipse(p.x,p.y-sp.z-hz,CW*.42,CW*.42*ISO,0,0,7); sh.fill(); }
       sh.fillStyle=keep; b={x0:cand.gx,x1:cand.gx+1,y0:cand.gy,y1:cand.gy+1}; poly(b,e); }
     else if(kind==='rug'){ // พรม: เงาเขียวเป็นรูปร่างพรมจริง (ภาพแบน) ไม่ใช่ช่องสี่เหลี่ยม
       const g=geomOf({key,gx:cand.gx,gy:cand.gy,flip:it?it.flip:false}); sh.save();
@@ -1802,6 +1815,9 @@ $('#fullBtn').addEventListener('click',()=>{ const no=()=>toast('เบราว
 // ขนาดภาพอ่านจากไฟล์จริง (ตัดใหม่เมื่อไหร่ก็ไม่ต้องแก้ตัวเลข)
 // ขนาดบนจอ: ของตั้งพื้นกว้างเท่าฐาน (fw+fd)·CW · ของติดผนัง/ชิ้นเล็กกว้าง w ช่อง · สูงตามสัดส่วนภาพ
 let META={}; try{ META=await (await fetch(IMG+'meta.json',{cache:'no-store'})).json(); }catch(e){}
+// ผิววางของ/จุดวางที่เจ้าของตีเส้นเองใน surf-edit.html (ทับค่าใน DEFS)
+try{ const SF=await (await fetch('surfs.json',{cache:'no-store'})).json(); for(const [k,v] of Object.entries(SF)){ if(!DEFS[k]) continue; const o=DEFS[k][6]=DEFS[k][6]||{};
+  if(v.surf) o.surf=v.surf; if(v.spots) DEFS[k].spots=v.spots; } }catch(e){}
 await Promise.all(Object.keys(DEFS).map(k=>new Promise(res=>{ const im=new Image(); im.onload=()=>{ const d=DEFS[k], o=d[6]=d[6]||{}, m=META[k];
   if(m && d[2]!=='wall'){
     // ภาพที่ดัดเข้ามุมเกมแล้ว (tools/modern-warp.py): ฐาน fw·fd และตำแหน่งมุมฐานในภาพ (ความละเอียด res เท่า)
