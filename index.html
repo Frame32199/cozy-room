@@ -138,7 +138,13 @@ body.isnight .glow{opacity:1}
 .pop{position:absolute;z-index:980;pointer-events:none;background-size:100% 100%;animation:pop 1s cubic-bezier(.2,.8,.3,1) forwards}
 @keyframes pop{0%{opacity:0;transform:translateY(0) scale(.6)}25%{opacity:1;transform:translateY(-18px) scale(1.15)}100%{opacity:0;transform:translateY(-44px) scale(.9)}}
 #seedPick{position:fixed;z-index:1070;display:none;gap:4px;padding:6px;border-radius:20px;transform:translate(-50%,-100%)}
-#seedPick.show{display:flex} #seedPick button{width:64px;padding:6px 4px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--ink)}
+#seedPick.show{display:flex}
+#cookPick{position:fixed;z-index:1070;display:none;flex-direction:column;gap:6px;padding:10px;border-radius:20px;transform:translate(-50%,-100%);width:min(300px,calc(100vw - 32px))}
+#cookPick.show{display:flex} #cookPick h3{margin:2px 6px 4px;font-size:14px;font-weight:600;color:var(--ink)} #cookPick small.pan{margin:0 6px 4px;font-size:12px;color:var(--ink-2)}
+#cookPick button{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:14px;text-align:left;color:var(--ink);min-height:52px}
+#cookPick button span.im{width:40px;height:40px;flex:none;background-size:contain;background-repeat:no-repeat;background-position:center}
+#cookPick button b{display:block;font-size:13px;font-weight:600} #cookPick button i{display:block;font-style:normal;font-size:11px;color:var(--ink-2)}
+#cookPick button:disabled{opacity:.4} @media (hover:hover) and (pointer:fine){ #cookPick button:not(:disabled):hover{background:rgba(127,117,105,.14)} } #seedPick button{width:64px;padding:6px 4px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--ink)}
 #seedPick button span.im{width:36px;height:36px;background-size:contain;background-repeat:no-repeat;background-position:center}
 @media (hover:hover) and (pointer:fine){ #seedPick button:hover{background:rgba(127,117,105,.14)} }
 .heart,.spark,.steam,.bubble,.note,.dust{display:none}
@@ -292,6 +298,7 @@ body.removing.over #trash{background:#b5543f;color:#fff;transform:translate(-50%
 <div class="pill" id="trash"><span class="ic" data-ic="archive-box"></span>ปล่อยตรงนี้เพื่อเก็บ</div>
 <div class="glass" id="toast" role="status"></div>
 <div id="seedPick" class="glass" role="dialog" aria-label="เลือกผักที่จะปลูก"></div>
+<div id="cookPick" class="glass" role="dialog" aria-label="เลือกเมนูที่จะทำ"></div>
 <div id="house" role="dialog" aria-modal="true" aria-labelledby="houseTitle"><div class="hpanel">
   <div class="hhead"><h2 id="houseTitle">บ้านของฉัน</h2><button class="btn" id="houseClose" aria-label="ปิด"><span class="ic" data-ic="x"></span></button></div>
   <p class="hsub" id="houseSub"></p>
@@ -698,6 +705,31 @@ const DEFS = {
   'desk-lamp':['โคมตั้งโต๊ะ','decor','small',0,0,'lamp',{w:.9}],
   'mini-plant':['กระถางเล็ก','decor','small',0,0,'plant',{w:.7}],
   'photo-frame':['กรอบรูปตั้งโต๊ะ','decor','small',0,0,'squash',{w:.8}],
+  // ห้องครัว (tools/modern-jobs-11.txt · ภาพยังไม่มี = ไม่ขึ้นในกล่อง) · เตา (cook) แตะแล้วทำอาหารจากผักในตะกร้า
+  'kitchen-counter':['ตู้ครัว','kitchen','floor',0,0,'squash',{fw:3,fd:2,surf:[[0.1,0.1,2.9,1.9,84]]}],
+  'fridge-retro':['ตู้เย็นเรโทร','kitchen','floor',0,0,'wardrobe',{fw:3,fd:2}],
+  'oven-stove':['ตู้เตาอบ','kitchen','floor',0,0,'cook',{fw:2,fd:4,surf:[[0.1,0.1,1.9,3.9,80]]}],
+  'kitchen-island':['เกาะครัว','kitchen','floor',0,0,'squash',{fw:3,fd:4,surf:[[0.3,0.1,3,3.4,84]]}],
+  'wall-cabinet':['ตู้แขวน','kitchen','wall',0,0,'wobble',{w:4,nat:'R'}],
+  'dish-shelf':['ชั้นวางจาน','kitchen','wall',0,0,'wobble',{w:4,nat:'R'}],
+  'pan-rail':['ราวแขวนกระทะ','kitchen','wall',0,0,'wobble',{w:4,nat:'R'}],
+  'range-hood':['เครื่องดูดควัน','kitchen','wall',0,0,'wobble',{w:3,nat:'R'}],
+  'jar-rail':['ชั้นโหลแก้ว','kitchen','wall',0,0,'wobble',{w:4.5,nat:'R'}],
+  'kettle':['กาต้มน้ำ','kitchen','small',0,0,'steam',{w:.8}],
+  'microwave':['ไมโครเวฟ','kitchen','small',0,0,'squash',{w:1.3}],
+  'fruit-bowl':['ชามผลไม้','kitchen','small',0,0,'squash',{w:1}],
+  'cutting-board':['เขียง','kitchen','small',0,0,'squash',{w:1.1}],
+  'spice-jars':['ขวดเครื่องปรุง','kitchen','small',0,0,'squash',{w:.9}],
+  'rice-cooker':['หม้อหุงข้าว','kitchen','small',0,0,'steam',{w:.9}],
+  'toaster':['เครื่องปิ้งขนมปัง','kitchen','small',0,0,'squash',{w:.9}],
+  'coffee-machine':['เครื่องชงกาแฟ','kitchen','small',0,0,'steam',{w:.9}],
+  'dish-rack':['ที่คว่ำจาน','kitchen','small',0,0,'squash',{w:1.1}],
+  'pot-stove':['หม้อ','kitchen','small',0,0,'steam',{w:.9}],
+  // อาหาร (ทำจากเตา หรือหยิบจากกล่องมาแต่ง)
+  'dish-salad':['สลัด','kitchen','small',0,0,'squash',{w:.8}],
+  'dish-carrot-soup':['ซุปแครอท','kitchen','small',0,0,'squash',{w:.8}],
+  'dish-tomato-pasta':['สปาเกตตี','kitchen','small',0,0,'squash',{w:.85}],
+  'dish-strawberry-cake':['เค้กสตรอเบอร์รี่','kitchen','small',0,0,'squash',{w:.8}],
   // ห้องน้ำ (tools/modern-jobs-12.txt) · ฉากฝักบัวตัดพื้นเขียวแบบกระจกใส (key-modern GLASS)
   'bathtub':['อ่างอาบน้ำ','bath','floor',0,0,'squash',{fw:3,fd:6}],
   'toilet':['ชักโครก','bath','floor',0,0,'squash',{fw:4,fd:2}],
@@ -757,7 +789,7 @@ const FX = {
   'raised-bed':{leaf:.58},
   'hanging-planter':{swing:1},
 };
-const CATS = [['bed','bed','ห้องนอน'],['work','desk','ทำงาน'],['living','armchair','นั่งเล่น'],['decor','plant','ของแต่ง'],['laundry','archive-box','ซักล้าง'],['bath','archive-box','ห้องน้ำ'],['garden','plant','สวน'],['wall','frame-corners','ติดผนัง'],['surface','paint-roller','ผนัง·พื้น']];
+const CATS = [['bed','bed','ห้องนอน'],['work','desk','ทำงาน'],['living','armchair','นั่งเล่น'],['decor','plant','ของแต่ง'],['laundry','archive-box','ซักล้าง'],['bath','archive-box','ห้องน้ำ'],['kitchen','archive-box','ครัว'],['garden','plant','สวน'],['wall','frame-corners','ติดผนัง'],['surface','paint-roller','ผนัง·พื้น']];
 function fp(key,flip){ const d=DEFS[key], o=d[6]||{}; let fw=o.fw||1, fd=o.fd||1; return flip?{fw:fd,fd:fw}:{fw,fd}; }
 const srcOf=k=>DEFS[k].src||IMG+k+'.png';   // ภาพที่ดัดเข้ามุมแล้ว (ถ้ามี)
 /* ผิววางของชิ้นเล็ก: surf = [[x0,y0,x1,y1,z],...] เป็นช่องนับจากมุมหลังของฐาน (ตามภาพที่ยังไม่กลับด้าน) · z = ความสูงผิว (จุดในเกม)
@@ -982,10 +1014,10 @@ function addItem(o){ const it={uid:uidSeq++, flip:false, ...o}; items.push(it); 
 function removeItem(it){
   for(const c of carried(it)) removeItem(c);
   if(selected===it) hideTools();
-  const r=els.get(it.uid); if(r){ r.el.remove(); r.glow&&r.glow.remove(); r.pool&&r.pool.remove(); r.exit&&r.exit.remove(); r.badge&&r.badge.remove(); } els.delete(it.uid);
+  const r=els.get(it.uid); if(r){ r.el.remove(); r.glow&&r.glow.remove(); r.pool&&r.pool.remove(); r.exit&&r.exit.remove(); r.badge&&r.badge.remove(); r.cookB&&r.cookB.remove(); } els.delete(it.uid);
   items=items.filter(o=>o!==it); requestDoorFx();
 }
-function clearItems(){ requestDoorFx(); for(const it of [...items]) { const r=els.get(it.uid); if(r){ r.el.remove(); r.glow&&r.glow.remove(); r.pool&&r.pool.remove(); r.exit&&r.exit.remove(); r.badge&&r.badge.remove(); } els.delete(it.uid); } items=[]; }
+function clearItems(){ requestDoorFx(); for(const it of [...items]) { const r=els.get(it.uid); if(r){ r.el.remove(); r.glow&&r.glow.remove(); r.pool&&r.pool.remove(); r.exit&&r.exit.remove(); r.badge&&r.badge.remove(); r.cookB&&r.cookB.remove(); } els.delete(it.uid); } items=[]; }
 
 /* ---- ตรวจที่วาง ---- */
 function fitsFloor(key,gx,gy,flip,ignore=new Set()){
@@ -1025,12 +1057,12 @@ function starter(){
 /* ================= ห้อง =================
    แต่ละห้องเซฟแยกกัน (ห้องนอนใช้ที่เซฟเดิม cozy-modern-v10) · cats = หมวดที่ขึ้นในกล่องของห้องนั้น · door = ห้องที่ประตูพาไป */
 const ROOMS={
-  bedroom:{name:'ห้องนอน', key:'cozy-modern-v10', cats:['bed','work','living','decor','laundry','bath','garden','wall','surface'], walls:{L:'window',R:'paint-charcoal'}, floor:'oak', size:{nx:16,ny:16}, starter:()=>starter()},
-  living:{name:'ห้องนั่งเล่น', key:'cozy-modern-v10-living', cats:['living','decor','work','laundry','bath','garden','wall','surface'], walls:{L:'window',R:'paint-white'}, floor:'walnut', size:{nx:20,ny:16}, starter:()=>starterLiving()},
+  bedroom:{name:'ห้องนอน', key:'cozy-modern-v10', cats:['bed','work','living','decor','kitchen','laundry','bath','garden','wall','surface'], walls:{L:'window',R:'paint-charcoal'}, floor:'oak', size:{nx:16,ny:16}, starter:()=>starter()},
+  living:{name:'ห้องนั่งเล่น', key:'cozy-modern-v10-living', cats:['living','decor','work','kitchen','laundry','bath','garden','wall','surface'], walls:{L:'window',R:'paint-white'}, floor:'walnut', size:{nx:20,ny:16}, starter:()=>starterLiving()},
 };
 /* ห้องที่ผู้เล่นสร้างเอง: รายชื่อใน localStorage 'cozy-rooms' [{id,name}] · เซฟห้องละคีย์ cozy-modern-v10-<id> · เริ่มเป็นห้องว่าง
    ประตู: it.to = ห้องปลายทาง · state.links = ห้องที่ต้องมีประตูกลับไป (ensureDoor วางพรมเช็ดเท้าให้เอง) */
-const ALL_CATS=['garden','bed','work','living','decor','laundry','bath','wall','surface'];
+const ALL_CATS=['kitchen','garden','bed','work','living','decor','laundry','bath','wall','surface'];
 const customRoom=r=>({name:r.name, key:'cozy-modern-v10-'+r.id, cats:ALL_CATS, walls:{L:'window',R:'paint-white'}, floor:'oak', size:{nx:16,ny:16}, starter:()=>{}, custom:1});
 function loadCustomRooms(){ let L=[]; try{ L=JSON.parse(localStorage.getItem('cozy-rooms')||'[]'); }catch(e){} for(const r of L) if(r&&r.id&&!ROOMS[r.id]) ROOMS[r.id]=customRoom(r); }
 function saveCustomRooms(){ try{ localStorage.setItem('cozy-rooms',JSON.stringify(Object.entries(ROOMS).filter(([,R])=>R.custom).map(([id,R])=>({id,name:R.name})))); }catch(e){} }
@@ -1288,8 +1320,8 @@ function water(it){ const f=it.farm||(it.farm={}); farmTick(it); f.wet=Date.now(
 function harvest(it){ const f=it.farm, c=f.crop, S=soilCells(it), lift=itemLift(it), im=cropImg['crop-'+c]||cropImg[c+'-3'];
   for(let i=0;i<5;i++) setTimeout(()=>{ const p=scr(S.x0+(i+.5)/5*(S.x1-S.x0),(S.y0+S.y1)/2), e=document.createElement('div'); e.className='pop'; const w=CW*.7;
     Object.assign(e.style,{left:(p.x-w/2)+'px',top:(p.y-S.z-lift-w)+'px',width:w+'px',height:w*(im?im.naturalHeight/im.naturalWidth:1)+'px',backgroundImage:im?`url(${im.src})`:''}); stage.appendChild(e); e.addEventListener('animationend',()=>e.remove()); },i*90);
-  state.harvest=state.harvest||{}; state.harvest[c]=(state.harvest[c]||0)+5;
-  it.farm={wet:f.wet,t:Date.now(),g:0}; drawFarm(it); commit(); toast(`เก็บ${CROPS[c]} 5 ชิ้น · ในตะกร้ามี ${state.harvest[c]} ชิ้น`,1800); }
+  const hv=pantry(); hv[c]=(hv[c]||0)+5; savePantry(hv);
+  it.farm={wet:f.wet,t:Date.now(),g:0}; drawFarm(it); commit(); toast(`เก็บ${CROPS[c]} 5 ชิ้น · ในตะกร้ามี ${hv[c]} ชิ้น`,1800); }
 function openSeed(it){ const box=$('#seedPick'); box.innerHTML='';
   const list=Object.keys(CROPS).filter(cropReady); if(!list.length){ toast('ยังไม่มีเมล็ดผัก (ภาพผักยังไม่มา)',1600); return; }
   for(const c of list){ const b=document.createElement('button'); b.innerHTML=`<span class="im" style="background-image:url(${(cropImg['crop-'+c]||cropImg[c+'-3']).src})"></span><span>${CROPS[c]}</span>`;
@@ -1299,6 +1331,51 @@ function openSeed(it){ const box=$('#seedPick'); box.innerHTML='';
 function hideSeed(){ $('#seedPick').classList.remove('show'); }
 document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#seedPick')) hideSeed(); },true);
 setInterval(()=>{ if(document.hidden) return; for(const it of items) if(it.farm){ const s0=farmStage(it.farm), w0=farmWet(it.farm); farmTick(it); if(farmStage(it.farm)!==s0||farmWet(it.farm)!==w0||it.farm.crop) drawFarm(it); if(farmStage(it.farm)!==s0) commit(); } },1000);
+
+/* ===== ทำอาหาร (แบบ Animal Crossing: ต้องมีเตา · ใช้ผักที่ปลูกเอง) =====
+   ตะกร้าผัก (pantry) ใช้ร่วมทุกห้อง: localStorage 'cozy-pantry' {ผัก: จำนวน}
+   แตะเตา → เมนู (ผักไม่พอ = จาง) → ใช้ผัก → ทำ 10 วิ (ป้าย+ไอน้ำ) → ได้อาหาร 1 จานวางบนเตา/โต๊ะว่างที่ใกล้สุด */
+const RECIPES=[
+  {key:'dish-salad', name:'สลัด', need:{lettuce:2,tomato:1}},
+  {key:'dish-carrot-soup', name:'ซุปแครอท', need:{carrot:3}},
+  {key:'dish-tomato-pasta', name:'สปาเกตตีซอสมะเขือเทศ', need:{tomato:3}},
+  {key:'dish-strawberry-cake', name:'เค้กสตรอเบอร์รี่', need:{strawberry:3}}];
+const COOK_MS=10e3;
+function pantry(){ try{ const p=JSON.parse(localStorage.getItem('cozy-pantry')||'null'); if(p) return p; }catch(e){}
+  const old=(state&&state.harvest)||{}; return {...old}; }   // เซฟเก่าเก็บผักไว้ในห้อง → ย้ายมาตะกร้ากลาง
+function savePantry(p){ try{ localStorage.setItem('cozy-pantry',JSON.stringify(p)); }catch(e){} if(state) delete state.harvest; }
+const needText=n=>Object.entries(n).map(([c,k])=>CROPS[c]+' '+k).join(' + ');
+const canCook=(r,p)=>Object.entries(r.need).every(([c,k])=>(p[c]||0)>=k);
+function cookTap(it){ hideCook(); const c=it.cook; if(c&&Date.now()<c.done){ anim(els.get(it.uid).el,'boing'); toast('กำลังทำ'+recipeOf(c.key).name+' อีก '+Math.ceil((c.done-Date.now())/1000)+' วิ',1200); return; }
+  const box=$('#cookPick'), p=pantry(); box.innerHTML=`<h3>ทำอาหาร</h3><small class="pan">ในตะกร้า: ${Object.keys(CROPS).map(c=>CROPS[c]+' '+(p[c]||0)).join(' · ')}</small>`;
+  for(const r of RECIPES){ if(!DEFS[r.key]) continue; const b=document.createElement('button'), ok=canCook(r,p);
+    b.innerHTML=`<span class="im" style="background-image:url(${srcOf(r.key)})"></span><span><b></b><i></i></span>`; b.querySelector('b').textContent=r.name; b.querySelector('i').textContent=needText(r.need)+(ok?'':' (ผักไม่พอ)');
+    b.disabled=!ok; b.setAttribute('aria-label','ทำ'+r.name); b.addEventListener('click',()=>startCook(it,r)); box.appendChild(b); }
+  if(box.querySelectorAll('button').length===0){ toast('ยังไม่มีเมนู (ภาพอาหารยังไม่มา)',1600); return; }
+  const e=els.get(it.uid).el.getBoundingClientRect(); box.style.left=Math.max(160,Math.min(innerWidth-160,e.left+e.width/2))+'px'; box.style.top=Math.max(230,e.top)+'px'; box.classList.add('show');
+  setTimeout(()=>box.querySelector('button:not(:disabled)')?.focus(),20); }
+function hideCook(){ $('#cookPick').classList.remove('show'); }
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#cookPick')) hideCook(); },true);
+const recipeOf=k=>RECIPES.find(r=>r.key===k);
+function startCook(it,r){ hideCook(); const p=pantry(); if(!canCook(r,p)) return; for(const [c,k] of Object.entries(r.need)) p[c]-=k; savePantry(p);
+  it.cook={key:r.key,done:Date.now()+COOK_MS}; commit(); anim(els.get(it.uid).el,'boing'); drawCook(it); toast('เริ่มทำ'+r.name,1200); }
+function drawCook(it){ const r=els.get(it.uid); if(!r) return; const c=it.cook, g=geomOf(it);
+  if(!c){ r.cookB&&r.cookB.remove(); r.cookB=null; r.cookS&&r.cookS.remove(); r.cookS=null; return; }
+  if(!r.cookB){ r.cookB=document.createElement('div'); r.cookB.className='fbadge grow'; stage.appendChild(r.cookB);
+    r.spr.insertAdjacentHTML('beforeend','<svg class="air on cooksteam" viewBox="0 0 20 30" aria-hidden="true"><path d="M10 28C6 22 14 17 10 11S9 4 11 0"/><path d="M5 28C2 23 8 18 5 12S4 5 6 1"/><path d="M15 28C12 22 18 18 15 12S14 5 16 1"/></svg>'); r.cookS=r.spr.lastElementChild;
+    Object.assign(r.cookS.style,{left:(g.w*.35)+'px',top:(-g.w*.25)+'px',width:(g.w*.3)+'px',height:(g.w*.45)+'px'}); }
+  const left=Math.max(0,c.done-Date.now()), pct=100-left/COOK_MS*100;
+  r.cookB.innerHTML=`<i>♨</i>${recipeOf(c.key).name}<span class="bar"><b style="width:${pct.toFixed(0)}%"></b></span>`; r.cookB.style.display=editing?'none':'';
+  Object.assign(r.cookB.style,{left:(g.left+g.w/2)+'px',top:(g.top-6)+'px'});
+  if(!left) finishCook(it); }
+function finishCook(it){ const key=it.cook.key, name=recipeOf(key).name; it.cook=null; drawCook(it);
+  // วางจานบนผิวว่าง: เตาก่อน แล้วโต๊ะที่ใกล้สุด
+  const hosts=[it,...items.filter(o=>o!==it&&surfsOf(o).length).sort((a,b)=>Math.hypot(a.gx-it.gx,a.gy-it.gy)-Math.hypot(b.gx-it.gx,b.gy-it.gy))];
+  for(const h of hosts) for(const s of surfsOf(h)) for(let x=Math.floor(s.x0);x<s.x1;x++) for(let y=Math.floor(s.y0);y<s.y1;y++){
+    if(!cellOn(h,s,x,y)||!freeOnHost(h,x,y,new Set())) continue;
+    const d=addItem({key,gx:x,gy:y,on:h.uid}); place(d); anim(els.get(d.uid).el,'boing'); commit(); toast(name+'เสร็จแล้ว วางไว้บน'+DEFS[h.key][0],1800); return; }
+  commit(); toast(name+'เสร็จแล้ว · ไม่มีที่วาง หยิบจากกล่องของหมวดครัวได้',2200); }
+setInterval(()=>{ if(document.hidden) return; for(const it of items) if(it.cook) drawCook(it); },500);
 
 /* ================= เซฟ / ย้อน ================= */
 const KEYOF=()=>ROOMS[room].key;
@@ -1439,6 +1516,7 @@ function interact(it){
       const e=document.createElement('div'); e.className='stream'; Object.assign(e.style,{left:(fx.x*g.w-1.3)+'px',top:(fx.y*g.h)+'px',height:((fx.y2-fx.y)*g.h)+'px'});
       r.spr.appendChild(e); r.stream=e; e.addEventListener('animationend',()=>{ e.remove(); r.stream=null; }); toast('เปิดก๊อกน้ำ',900); } break;
     case 'farm': farmTap(it); break;
+    case 'cook': cookTap(it); break;
     case 'washer': toggle(); toast(it.lit?'เริ่มซักผ้าแล้ว':'หยุดซักแล้ว',900); break;
     case 'purifier': toggle(); toast(it.lit?'เปิดเครื่องฟอกอากาศ':'ปิดเครื่องฟอกอากาศ',900); break;
     case 'vacuum': anim(r.el,'wobble'); { const g=geomOf(it), fl=r.el.classList.contains('flip'); for(let i=0;i<6;i++) setTimeout(()=>{ const e=document.createElement('div'); e.className='puff';
