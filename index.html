@@ -698,6 +698,12 @@ const DEFS = {
   'desk-lamp':['โคมตั้งโต๊ะ','decor','small',0,0,'lamp',{w:.9}],
   'mini-plant':['กระถางเล็ก','decor','small',0,0,'plant',{w:.7}],
   'photo-frame':['กรอบรูปตั้งโต๊ะ','decor','small',0,0,'squash',{w:.8}],
+  // ห้องน้ำ (tools/modern-jobs-12.txt) · ฉากฝักบัวตัดพื้นเขียวแบบกระจกใส (key-modern GLASS)
+  'bathtub':['อ่างอาบน้ำ','bath','floor',0,0,'squash',{fw:3,fd:6}],
+  'toilet':['ชักโครก','bath','floor',0,0,'squash',{fw:4,fd:2}],
+  'shower-glass':['ฉากฝักบัวกระจก','bath','floor',0,0,'squash',{fw:4,fd:4}],
+  // ที่นอนลายกระต่าย (ภาพตัวละครลิขสิทธิ์ — อยู่ใน local-only.txt ไม่ขึ้นเว็บ · ไม่มีภาพ = ไม่ขึ้นในกล่อง)
+  'bed-bunny2':['เตียงลายกระต่าย','bed','floor',0,0,'bed',{fw:7,fd:8,surf:[[0.5,2,7,8,50]]}],
   // หมวดซักล้าง (ภาพจาก tools/modern-jobs-8.txt · ภาพยังไม่มี = ไม่ขึ้นในกล่อง) · fw/fd จริงมาจาก meta.json ตอนดัดภาพ
   'washing-machine':['เครื่องซักผ้า','laundry','floor',0,0,'washer',{fw:2,fd:2,surf:[[0.15,0.15,1.85,1.85,86]]}],
   'laundry-sink':['ตู้อ่างล้างหน้า','laundry','floor',0,0,'sink',{fw:4,fd:2,surf:[[0,0,1,2,80],[3.1,0,4,2,80]]}],   // ท็อปสองข้างอ่าง (ไม่รวมอ่าง/ก๊อก)
@@ -751,7 +757,7 @@ const FX = {
   'raised-bed':{leaf:.58},
   'hanging-planter':{swing:1},
 };
-const CATS = [['bed','bed','ห้องนอน'],['work','desk','ทำงาน'],['living','armchair','นั่งเล่น'],['decor','plant','ของแต่ง'],['laundry','archive-box','ซักล้าง'],['garden','plant','สวน'],['wall','frame-corners','ติดผนัง'],['surface','paint-roller','ผนัง·พื้น']];
+const CATS = [['bed','bed','ห้องนอน'],['work','desk','ทำงาน'],['living','armchair','นั่งเล่น'],['decor','plant','ของแต่ง'],['laundry','archive-box','ซักล้าง'],['bath','archive-box','ห้องน้ำ'],['garden','plant','สวน'],['wall','frame-corners','ติดผนัง'],['surface','paint-roller','ผนัง·พื้น']];
 function fp(key,flip){ const d=DEFS[key], o=d[6]||{}; let fw=o.fw||1, fd=o.fd||1; return flip?{fw:fd,fd:fw}:{fw,fd}; }
 const srcOf=k=>DEFS[k].src||IMG+k+'.png';   // ภาพที่ดัดเข้ามุมแล้ว (ถ้ามี)
 /* ผิววางของชิ้นเล็ก: surf = [[x0,y0,x1,y1,z],...] เป็นช่องนับจากมุมหลังของฐาน (ตามภาพที่ยังไม่กลับด้าน) · z = ความสูงผิว (จุดในเกม)
@@ -1019,12 +1025,12 @@ function starter(){
 /* ================= ห้อง =================
    แต่ละห้องเซฟแยกกัน (ห้องนอนใช้ที่เซฟเดิม cozy-modern-v10) · cats = หมวดที่ขึ้นในกล่องของห้องนั้น · door = ห้องที่ประตูพาไป */
 const ROOMS={
-  bedroom:{name:'ห้องนอน', key:'cozy-modern-v10', cats:['bed','work','living','decor','laundry','garden','wall','surface'], walls:{L:'window',R:'paint-charcoal'}, floor:'oak', size:{nx:16,ny:16}, starter:()=>starter()},
-  living:{name:'ห้องนั่งเล่น', key:'cozy-modern-v10-living', cats:['living','decor','work','laundry','garden','wall','surface'], walls:{L:'window',R:'paint-white'}, floor:'walnut', size:{nx:20,ny:16}, starter:()=>starterLiving()},
+  bedroom:{name:'ห้องนอน', key:'cozy-modern-v10', cats:['bed','work','living','decor','laundry','bath','garden','wall','surface'], walls:{L:'window',R:'paint-charcoal'}, floor:'oak', size:{nx:16,ny:16}, starter:()=>starter()},
+  living:{name:'ห้องนั่งเล่น', key:'cozy-modern-v10-living', cats:['living','decor','work','laundry','bath','garden','wall','surface'], walls:{L:'window',R:'paint-white'}, floor:'walnut', size:{nx:20,ny:16}, starter:()=>starterLiving()},
 };
 /* ห้องที่ผู้เล่นสร้างเอง: รายชื่อใน localStorage 'cozy-rooms' [{id,name}] · เซฟห้องละคีย์ cozy-modern-v10-<id> · เริ่มเป็นห้องว่าง
    ประตู: it.to = ห้องปลายทาง · state.links = ห้องที่ต้องมีประตูกลับไป (ensureDoor วางพรมเช็ดเท้าให้เอง) */
-const ALL_CATS=['garden','bed','work','living','decor','laundry','wall','surface'];
+const ALL_CATS=['garden','bed','work','living','decor','laundry','bath','wall','surface'];
 const customRoom=r=>({name:r.name, key:'cozy-modern-v10-'+r.id, cats:ALL_CATS, walls:{L:'window',R:'paint-white'}, floor:'oak', size:{nx:16,ny:16}, starter:()=>{}, custom:1});
 function loadCustomRooms(){ let L=[]; try{ L=JSON.parse(localStorage.getItem('cozy-rooms')||'[]'); }catch(e){} for(const r of L) if(r&&r.id&&!ROOMS[r.id]) ROOMS[r.id]=customRoom(r); }
 function saveCustomRooms(){ try{ localStorage.setItem('cozy-rooms',JSON.stringify(Object.entries(ROOMS).filter(([,R])=>R.custom).map(([id,R])=>({id,name:R.name})))); }catch(e){} }
