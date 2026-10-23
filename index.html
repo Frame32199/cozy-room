@@ -106,6 +106,20 @@ body.isnight .glow{opacity:1}
 .pool.on{opacity:.35} body.isnight .pool.on{opacity:1}
 .pt{position:absolute;pointer-events:none;z-index:970}
 /* ---- ปลูกผัก ---- */
+/* ---- เครื่องซักผ้า (ถังหมุน+สั่น) · ก๊อกน้ำ · เครื่องฟอกอากาศ · ดูดฝุ่น · กระถางแขวนแกว่ง ---- */
+.drum{position:absolute;border-radius:50%;overflow:hidden;opacity:0;transition:opacity .4s;pointer-events:none}
+.drum.on{opacity:1} .drum i{position:absolute;inset:-25%;border-radius:50%;background:conic-gradient(rgba(190,215,240,.0),rgba(190,215,240,.75) 15%,rgba(255,255,255,0) 32%,rgba(150,185,225,.6) 55%,rgba(255,255,255,0) 72%,rgba(220,235,250,.7) 88%,rgba(190,215,240,0));animation:spin .8s linear infinite}
+.it.washing .spr{animation:shake .18s linear infinite} @keyframes shake{0%,100%{translate:0 0}25%{translate:.5px -.3px}75%{translate:-.5px .3px}}
+.stream{position:absolute;width:2.6px;border-radius:2px;background:linear-gradient(rgba(200,230,250,.95),rgba(140,200,240,.75));transform-origin:50% 0;pointer-events:none;animation:stream 2.6s ease-in-out forwards}
+@keyframes stream{0%{transform:scaleY(0)}12%{transform:scaleY(1)}85%{transform:scaleY(1);opacity:1}100%{transform:scaleY(1);opacity:0}}
+.air{position:absolute;opacity:0;transition:opacity .5s;pointer-events:none} .air.on{opacity:1}
+.air path{fill:none;stroke:rgba(170,215,240,.9);stroke-width:1.4;stroke-linecap:round;opacity:0;animation:wisp 2.4s ease-out infinite}
+.air path:nth-child(2){animation-delay:.8s} .air path:nth-child(3){animation-delay:1.6s}
+.puff{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(220,212,198,.9);pointer-events:none;animation:puff .8s ease-out forwards}
+@keyframes puff{0%{opacity:.9;transform:translate(0,0) scale(.4)}100%{opacity:0;transform:translate(var(--dx),-10px) scale(1.6)}}
+.it.swing .spr{transform-origin:50% 0;animation:swing 4.5s ease-in-out infinite} .it.swing.flip .spr{animation-name:swingf}
+@keyframes swing{0%,100%{rotate:-1.6deg}50%{rotate:1.6deg}} @keyframes swingf{0%,100%{transform:scaleX(-1) rotate(-1.6deg)}50%{transform:scaleX(-1) rotate(1.6deg)}}
+@media (prefers-reduced-motion:reduce){ .drum i,.it.washing .spr,.air path,.it.swing .spr{animation:none} }
 .farm{position:absolute;inset:0;pointer-events:none;overflow:visible}
 .farm .soil{position:absolute;inset:0;transition:background-color .8s}
 .farm .soil.wet{background:rgba(38,22,12,.42)} .farm .soil.dry{background:rgba(236,206,160,.26)}
@@ -685,11 +699,11 @@ const DEFS = {
   'mini-plant':['กระถางเล็ก','decor','small',0,0,'plant',{w:.7}],
   'photo-frame':['กรอบรูปตั้งโต๊ะ','decor','small',0,0,'squash',{w:.8}],
   // หมวดซักล้าง (ภาพจาก tools/modern-jobs-8.txt · ภาพยังไม่มี = ไม่ขึ้นในกล่อง) · fw/fd จริงมาจาก meta.json ตอนดัดภาพ
-  'washing-machine':['เครื่องซักผ้า','laundry','floor',0,0,'tub',{fw:2,fd:2,surf:[[0.15,0.15,1.85,1.85,86]]}],
+  'washing-machine':['เครื่องซักผ้า','laundry','floor',0,0,'washer',{fw:2,fd:2,surf:[[0.15,0.15,1.85,1.85,86]]}],
   'laundry-sink':['ตู้อ่างล้างหน้า','laundry','floor',0,0,'sink',{fw:4,fd:2,surf:[[0,0,1,2,80],[3.1,0,4,2,80]]}],   // ท็อปสองข้างอ่าง (ไม่รวมอ่าง/ก๊อก)
   'laundry-cart':['รถเข็นผ้าขนหนู','laundry','floor',0,0,'squash',{fw:2,fd:2}],
-  'stick-vacuum':['เครื่องดูดฝุ่น','laundry','floor',0,0,'wobble',{fw:1,fd:2}],
-  'air-purifier':['เครื่องฟอกอากาศ','laundry','floor',0,0,'squash',{fw:1,fd:1}],
+  'stick-vacuum':['เครื่องดูดฝุ่น','laundry','floor',0,0,'vacuum',{fw:1,fd:2}],
+  'air-purifier':['เครื่องฟอกอากาศ','laundry','floor',0,0,'purifier',{fw:1,fd:1}],
   'jute-rug':['พรมปอ','laundry','rug',0,0,'rug',{fw:4,fd:5}],
   'pegboard':['แผงแขวนอุปกรณ์','laundry','wall',0,0,'wobble',{w:4,nat:'R'}],
   'corner-shelf':['ชั้นวางตะกร้า','laundry','wall',0,0,'wobble',{w:6,nat:'R'}],
@@ -729,6 +743,13 @@ const FX = {
   'floor-lamp':{light:{x:.80,y:.40},pool:{x:.80,y:.97,r:1.4}},
   'side-table':{light:{x:.50,y:.18},pool:{x:.50,y:.99,r:1.7}},
   'desk-lamp':{light:{x:.30,y:.30}},
+  // ซักล้าง/สวน (วัดจากภาพ fit/ ด้วยตารางสัดส่วน) · drum = ฝาเครื่องซักผ้า (หน้าเครื่องหันซ้าย) · tap = ปากก๊อก→ก้นอ่าง · air = ช่องลมบน
+  'washing-machine':{drum:{x:.27,y:.60,r:.165}},
+  'laundry-sink':{tap:{x:.535,y:.115,y2:.27}},
+  'air-purifier':{air:{x:.5,y:.10}},
+  'fiddle-tree':{leaf:.64},
+  'raised-bed':{leaf:.58},
+  'hanging-planter':{swing:1},
 };
 const CATS = [['bed','bed','ห้องนอน'],['work','desk','ทำงาน'],['living','armchair','นั่งเล่น'],['decor','plant','ของแต่ง'],['laundry','archive-box','ซักล้าง'],['garden','plant','สวน'],['wall','frame-corners','ติดผนัง'],['surface','paint-roller','ผนัง·พื้น']];
 function fp(key,flip){ const d=DEFS[key], o=d[6]||{}; let fw=o.fw||1, fd=o.fd||1; return flip?{fw:fd,fd:fw}:{fw,fd}; }
@@ -858,6 +879,9 @@ function addFx(it,r){
       <line class="hh" x1="0" y1=".08" x2="0" y2="-.48" stroke-width=".065"/><line class="mm" x1="0" y1=".1" x2="0" y2="-.74" stroke-width=".045"/>
       <line class="ss" x1="0" y1=".16" x2="0" y2="-.8" stroke="#c0643f" stroke-width=".018"/><circle r=".05" fill="#3a302b" stroke="none"/></g></svg>`);
     r.hands=spr.lastElementChild; tickClock(r); }
+  if(fx.drum){ r.drum=document.createElement('div'); r.drum.className='drum'; r.drum.innerHTML='<i></i>'; spr.appendChild(r.drum); }
+  if(fx.air){ spr.insertAdjacentHTML('beforeend',`<svg class="air" viewBox="0 0 20 30" aria-hidden="true"><path d="M10 28C6 22 14 17 10 11S9 4 11 0"/><path d="M5 28C2 23 8 18 5 12S4 5 6 1"/><path d="M15 28C12 22 18 18 15 12S14 5 16 1"/></svg>`); r.air=spr.lastElementChild; }
+  if(fx.swing) r.el.classList.add('swing');
   if(fx.steam){ spr.insertAdjacentHTML('beforeend',`<svg class="fx wisp" viewBox="0 0 20 30" aria-hidden="true" stroke-width="1.6">
       <path d="M10 28C6 22 14 17 10 11S9 4 11 0"/><path d="M6 28C3 23 9 18 6 12S5 5 7 1"/><path d="M14 28C11 22 17 18 14 12S13 5 15 1"/></svg>`);
     r.steam=spr.lastElementChild; }
@@ -867,6 +891,10 @@ function layoutFx(it,g){
   const r=els.get(it.uid), fx=FX[it.key]; if(!fx) return;
   if(r.vinyl){ const v=fx.vinyl, d=2*v.r*g.w; Object.assign(r.vinyl.style,{left:(v.x*g.w-d/2)+'px',top:(v.y*g.h-d/2)+'px',width:d+'px',height:d+'px'});
     r.vinyl.classList.toggle('on',!!it.lit); }
+  if(r.drum){ const v=fx.drum, d=2*v.r*g.w;   // วงกลมบนหน้าเครื่องที่หันซ้าย: เฉือนตามแนวหน้าเครื่อง
+    Object.assign(r.drum.style,{left:(v.x*g.w-d/2)+'px',top:(v.y*g.h-d/2)+'px',width:d+'px',height:d+'px',transform:`skewY(${Math.atan(ISO)*180/Math.PI}deg) scaleX(.86)`});
+    r.drum.classList.toggle('on',!!it.lit); }
+  if(r.air){ const a=fx.air, w=Math.max(10,g.w*.45); Object.assign(r.air.style,{left:(a.x*g.w-w/2)+'px',top:(a.y*g.h-w*1.5)+'px',width:w+'px',height:w*1.5+'px'}); r.air.classList.toggle('on',!!it.lit); }
   if(r.steam){ const s=fx.steam, w=Math.max(10,g.w*.5); Object.assign(r.steam.style,{left:(s.x*g.w-w/2)+'px',top:(s.y*g.h-w*1.5)+'px',width:w+'px',height:w*1.5+'px'}); }
 }
 // เข็มนาฬิกาเดินตามเวลาเครื่อง · แขวนผนังอีกด้าน ภาพถูกกลับซ้ายขวา → หมุนกลับทางให้ยังเดินตามเข็ม
@@ -885,6 +913,7 @@ function place(it){ if(DEFS[it.key]&&DEFS[it.key][5]==='farm') requestAnimationF
   r.el.classList.toggle('tvon',!!it.lit && d[5]==='tv');
   r.el.classList.toggle('twinkle',!!it.lit && d[5]==='lights');
   r.el.classList.toggle('flame',!!it.lit && d[5]==='candle');
+  r.el.classList.toggle('washing',!!it.lit && d[5]==='washer');
   if((d[6]||{}).gen) r.spr.style.backgroundImage=`url(${doorSeamURL(wallColOf(it))})`;   // สีตามผนังที่แขวนอยู่
   placeGlow(it,g); layoutFx(it,g); placeExit(it,r); if(DEFS[it.key][5]==='door') requestDoorFx(); if(r.hands) tickClock(r); requestLights();
 
@@ -1400,8 +1429,14 @@ function interact(it){
     case 'fridge': anim(r.el,'wobble'); burst(it,'spark',3,.2,.6,120); break;
     case 'stove': anim(r.el,'boing'); burst(it,'steam',5,.05,.4,140); break;
     case 'steam': anim(r.el,'boing'); burst(it,'steam',3,0,.4,160); break;
-    case 'sink': anim(r.el,'boing'); burst(it,'bubble',4,.2,.5,140); break;
+    case 'sink': { const fx=FX[it.key]&&FX[it.key].tap; if(!fx||r.stream){ anim(r.el,'boing'); break; } const g=geomOf(it), fl=r.el.classList.contains('flip');
+      const e=document.createElement('div'); e.className='stream'; Object.assign(e.style,{left:(fx.x*g.w-1.3)+'px',top:(fx.y*g.h)+'px',height:((fx.y2-fx.y)*g.h)+'px'});
+      r.spr.appendChild(e); r.stream=e; e.addEventListener('animationend',()=>{ e.remove(); r.stream=null; }); toast('เปิดก๊อกน้ำ',900); } break;
     case 'farm': farmTap(it); break;
+    case 'washer': toggle(); toast(it.lit?'เริ่มซักผ้าแล้ว':'หยุดซักแล้ว',900); break;
+    case 'purifier': toggle(); toast(it.lit?'เปิดเครื่องฟอกอากาศ':'ปิดเครื่องฟอกอากาศ',900); break;
+    case 'vacuum': anim(r.el,'wobble'); { const g=geomOf(it), fl=r.el.classList.contains('flip'); for(let i=0;i<6;i++) setTimeout(()=>{ const e=document.createElement('div'); e.className='puff';
+      Object.assign(e.style,{left:(g.left+g.w*(fl?.8:.2)+(Math.random()-.5)*8)+'px',top:(g.top+g.h*.9)+'px'}); e.style.setProperty('--dx',((Math.random()-.5)*16)+'px'); stage.appendChild(e); e.addEventListener('animationend',()=>e.remove()); },i*70); } break;
     case 'water': anim(r.el,'wobble'); { const g=geomOf(it); for(let i=0;i<10;i++) setTimeout(()=>{ const d=document.createElement('div'); d.className='drop'; Object.assign(d.style,{left:(g.left+g.w*(.05+Math.random()*.25))+'px',top:(g.top+g.h*.45)+'px'}); stage.appendChild(d); d.addEventListener('animationend',()=>d.remove()); },i*60); } break;
     case 'tub': anim(r.el,'boing'); burst(it,'bubble',8,.2,.8,100); break;
     case 'clock': anim(r.el,'wobble'); burst(it,'note',2,0,.4,200); break;
