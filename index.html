@@ -853,10 +853,18 @@ function wallFix(it){ const door=DEFS[it.key][5]==='door', keep={u:it.u,v:it.v};
 function rehang(it){ const d=DEFS[it.key], hw=d[3]/(2*CW), h=wallH(d), opts=[];
   for(const r of GEO.runs){ if(!r.tall||r.a1-r.a0<2*hw) continue; const top=WALLH-r.z-h; if(top<0) continue; const v=Math.min(it.v||0,top);
     for(let u=r.a0+hw;u<=r.a1-hw+1e-6;u+=.5){
-      if(items.some(o=>o!==it&&DEFS[o.key][2]==='wall'&&o.wall===r.side&&(o.wa||0)===r.c&&Math.abs(o.u-u)<hw+DEFS[o.key][3]/(2*CW)-.05&&v<o.v+wallH(DEFS[o.key])-1&&o.v<v+h-1)) continue;
+      if(wallHit(it.key,r.side,r.c,u,v,it)) continue;
       if(d[5]==='door'&&!doorFits(it.key,r.side,r.c,u,it)) continue;
       const P=wallBase(r.side,r.c,u), Q=wallBase(it.wall,it.wa,it.u); opts.push({r,u,v,dist:Math.hypot(P.x-Q.x,P.y-Q.y)+(r.side===it.wall?0:400)}); } }
   if(!opts.length) return false; const b=opts.sort((p,q)=>p.dist-q.dist)[0]; it.wall=b.r.side; it.wa=b.r.c; it.u=b.u; it.v=b.v; return true; }
+// กรอบของติดผนังบนผนัง: u0-u1 (ช่องตามแนวผนัง) × v0-v1 (px เหนือพื้น) ตามเนื้อภาพจริง
+function wallBox(key,side,u,v){ const d=DEFS[key], m=d.wr||{l:-d[3]/2,r:d[3]/2,b:0,t:wallH(d)}, flip=side!==((d[6]||{}).nat||'L');
+  const xl=flip?-m.r:m.l, xr=flip?-m.l:m.r, A=side==='R'?[u+xl/CW,u+xr/CW]:[u-xr/CW,u-xl/CW];
+  return {u0:A[0],u1:A[1],v0:v+m.b,v1:v+m.t}; }
+const boxHit=(p,q)=>p.u0<q.u1-.04&&q.u0<p.u1-.04&&p.v0<q.v1-1&&q.v0<p.v1-1;
+// ทับของติดผนังชิ้นอื่นบนผนังเดียวกันไหม (เทียบกรอบเนื้อภาพจริง ไม่ใช่ขนาดภาพ)
+function wallHit(key,side,wa,u,v,ignore){ const B=wallBox(key,side,u,v);
+  return items.some(o=>o!==ignore&&DEFS[o.key]&&DEFS[o.key][2]==='wall'&&o.wall===side&&(o.wa||0)===(wa||0)&&boxHit(B,wallBox(o.key,o.wall,o.u,o.v||0))); }
 // ลากของติดผนัง: หาช่วงผนังสูงที่ใกล้นิ้วที่สุด
 function wallPick(lx,ly,d){ const hw=d[3]/(2*CW); let best=null;
   for(const r of GEO.runs){ if(!r.tall||r.a1-r.a0<2*hw+.4) continue;
@@ -1214,7 +1222,7 @@ function goRoom(r){
 }
 // ประตูที่ตำแหน่งนี้ใช้ได้ไหม: อยู่บนผนังสูง · ไม่ทับของติดผนัง · ช่องพื้นหน้าประตูไม่มีเฟอร์นิเจอร์
 function doorFits(key,wall,wa,u,ignore){ const d=DEFS[key], hw=d[3]/(2*CW); wa=wa||0; if(!wallRunOf(wall,wa,u,hw)) return false;
-  if(items.some(o=>o!==ignore && DEFS[o.key][2]==='wall' && o.wall===wall && (o.wa||0)===wa && Math.abs(o.u-u)<hw+DEFS[o.key][3]/(2*CW)-.05 && o.v<wallH(d)-1)) return false;
+  if(wallHit(key,wall,wa,u,0,ignore)) return false;
   for(let k=Math.floor(u-hw);k<Math.ceil(u+hw);k++){ const x=wall==='L'?wa:k, y=wall==='L'?k:wa;
     for(const o of items){ if(o===ignore||DEFS[o.key][2]!=='floor'||o.on!=null) continue; const b=boxOf(o); if(x>=b.x0&&x<b.x1&&y>=b.y0&&y<b.y1) return false; } }
   return true; }
@@ -1657,8 +1665,8 @@ function beginDrag(src,e0,ev0){
     else if(kind!=='wall'){ const bz=platZ.get(floorAt(cand.gx,cand.gy)); if(bz) shc.style.zIndex=bz+2; }   // เงาบนพื้นยก: อยู่เหนือชั้นพื้นยก   // วางบนผิวโต๊ะ: เงาต้องอยู่เหนือโต๊ะ ไม่งั้นโต๊ะบัง
     sh.fillStyle=cand.ok?'rgba(79,174,106,.55)':'rgba(226,86,107,.55)';
     let b; if(kind==='wall'){ // ของติดผนัง: เงาเป็นสี่เหลี่ยมบนผนัง (เอียงตามผนัง) กว้างเท่าของ สูงเท่าของ
-      const hw=d[3]/(2*CW), P=(uu,vv)=>{ const p=wallBase(cand.wall,cand.wa,uu); return {x:p.x,y:p.y-vv}; };
-      const Q=[P(cand.u-hw,cand.v),P(cand.u+hw,cand.v),P(cand.u+hw,cand.v+wallH(d)),P(cand.u-hw,cand.v+wallH(d))];
+      const P=(uu,vv)=>{ const p=wallBase(cand.wall,cand.wa,uu); return {x:p.x,y:p.y-vv}; }, B=wallBox(key,cand.wall,cand.u,cand.v);
+      const Q=[P(B.u0,B.v0),P(B.u1,B.v0),P(B.u1,B.v1),P(B.u0,B.v1)];
       sh.beginPath(); Q.forEach((p,i)=>i?sh.lineTo(p.x,p.y):sh.moveTo(p.x,p.y)); sh.closePath(); sh.fill(); return; }
     if(cand.on!=null){ const host=items.find(o=>o.uid===cand.on), hz=itemLift(host), e=zOn(host,cand.gx,cand.gy)+hz, keep=sh.fillStyle;
       sh.fillStyle=cand.ok?'rgba(79,174,106,.22)':'rgba(226,86,107,.22)';
@@ -1679,10 +1687,20 @@ function beginDrag(src,e0,ev0){
       let u=Math.round(pk.u*2)/2; u=Math.max(r.a0+hw,Math.min(r.a1-hw,u));
       const base=wallBase(side,wa,u), top=WALLH-r.z-wallH(d); let v=base.y-ly; v=Math.max(2,Math.min(top-2,v));
       v=Math.round(v/(WV/2))*(WV/2); v=Math.max(0,Math.min(top,v)); if(d[5]==='door') v=0;   // ลงล็อกครึ่งช่องตามตารางผนัง
-      const g={left:Math.round(base.x-d[3]/2),top:Math.round(base.y-v-d[4]+d[3]*ISO/2),w:d[3],h:d[4]};
-      // ทับของติดผนังชิ้นอื่นบนผนังเดียวกัน = วางไม่ได้ (เทียบช่วงตามแนวผนัง × ช่วงความสูง)
-      const hit=items.some(o=>o!==it && DEFS[o.key][2]==='wall' && o.wall===side && (o.wa||0)===wa && Math.abs(o.u-u)<(hw+DEFS[o.key][3]/(2*CW))-.05 && v<o.v+wallH(DEFS[o.key])-1 && o.v<v+wallH(d)-1);
-      return {wall:side,wa,u,v,ok:!hit && (d[5]!=='door' || doorFits(key,side,wa,u,it)),g};
+      // อยู่ใกล้ขอบชิ้นข้างเคียง (บน/ล่าง/ซ้าย/ขวา) → ดูดชิดพอดี ไม่ซ้อน ไม่เว้นช่องแปลก ๆ
+      if(d[5]!=='door'){ const B=wallBox(key,side,u,v);
+        for(const o of items){ if(o===it||DEFS[o.key][2]!=='wall'||o.wall!==side||(o.wa||0)!==wa) continue; const Q=wallBox(o.key,o.wall,o.u,o.v||0);
+          if(B.u0<Q.u1-.04&&Q.u0<B.u1-.04){ if(Math.abs(B.v0-Q.v1)<WV*.6) v+=Q.v1-B.v0; else if(Math.abs(B.v1-Q.v0)<WV*.6) v+=Q.v0-B.v1; }
+          else if(B.v0<Q.v1-1&&Q.v0<B.v1-1){ const du=Math.abs(B.u0-Q.u1)<.35?Q.u1-B.u0:Math.abs(B.u1-Q.u0)<.35?Q.u0-B.u1:0; if(du&&u+du>=r.a0+hw&&u+du<=r.a1-hw) u+=du; } }
+        v=Math.max(0,Math.min(top,v));
+        // ยังเกยชิ้นอื่นอยู่ → เลื่อนไปวางชิดบน/ใต้ชิ้นนั้นที่ใกล้ที่สุด (ไม่เกินความสูงตัวเอง)
+        if(wallHit(key,side,wa,u,v,it)){ const B2=wallBox(key,side,u,v), hh=B2.v1-B2.v0; let best=null;
+          for(const o of items){ if(o===it||DEFS[o.key][2]!=='wall'||o.wall!==side||(o.wa||0)!==wa) continue; const Q=wallBox(o.key,o.wall,o.u,o.v||0);
+            if(!(B2.u0<Q.u1-.04&&Q.u0<B2.u1-.04)) continue;
+            for(const c of [v+Q.v1-B2.v0, v+Q.v0-B2.v1]) if(c>=0&&c<=top&&Math.abs(c-v)<=hh&&!wallHit(key,side,wa,u,c,it)&&(!best||Math.abs(c-v)<Math.abs(best-v))) best=c; }
+          if(best!=null) v=best; } }
+      const base2=wallBase(side,wa,u), g={left:Math.round(base2.x-d[3]/2),top:Math.round(base2.y-v-d[4]+d[3]*ISO/2),w:d[3],h:d[4]};
+      return {wall:side,wa,u,v,ok:!wallHit(key,side,wa,u,v,it) && (d[5]!=='door' || doorFits(key,side,wa,u,it)),g};
     }
     if(kind==='small'){ const h=hostAt(lx,ly-2,ignore); if(h){ return {gx:h.gx,gy:h.gy,on:h.host.uid,ok:freeOnHost(h.host,h.gx,h.gy,ignore)}; } }
     // จุดฐาน = มุมหน้าสุด · พื้นยก: ลองทีละระดับจากสูงลงต่ำ เอาระดับแรกที่ฐานอยู่บนพื้นระดับนั้นพอดี
@@ -1874,6 +1892,13 @@ await Promise.all(Object.keys(DEFS).map(k=>new Promise(res=>{ const im=new Image
   const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d'); g.drawImage(im,0,0,w,h);
   const d=g.getImageData(0,0,w,h).data, a=new Uint8Array(w*h); for(let i=0;i<w*h;i++) a[i]=d[i*4+3];
   DEFS[k].mask={w,h,a}; res(); }; im.onerror=res; im.src=srcOf(k); })));
+// ของติดผนัง: กรอบที่เนื้อภาพกินพื้นที่บนผนังจริง (รวมส่วนที่ยื่นออกจากผนังและของที่ห้อยลงมา) วัดจากหน้ากาก
+// l,r = ระยะจอซ้าย-ขวาจากกลางภาพ · b,t = สูงต่ำสุด/สูงสุดเหนือเส้นฐานผนัง (px) · ตามด้านเดิมของภาพ (nat)
+for(const d of Object.values(DEFS)){ if(d[2]!=='wall'||!d.mask) continue; const {w,h,a}=d.mask, sc=d[3]/w, s=((d[6]||{}).nat||'L')==='R'?1:-1;
+  let l=1e9,r=-1e9,b=1e9,t=-1e9;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ if(a[y*w+x]<60) continue; const X=(x+.5)*sc-d[3]/2, hv=d[4]-d[3]*ISO/2+s*X*ISO-(y+.5)*sc;
+    if(X<l) l=X; if(X>r) r=X; if(hv<b) b=hv; if(hv>t) t=hv; }
+  if(l<r) d.wr={l,r,b,t}; }
 stage.style.width=SW+'px'; stage.style.height=SH+'px';
 state = load();
 if(!state){ const R=ROOMS[room]; state={v:1,night:false,walls:{...R.walls},floor:R.floor,size:{...R.size},blocks:[],items:[]}; }
