@@ -897,7 +897,7 @@ function sortAll(){
   out.forEach((n,i)=>{ const z=20+i*4; if(n.el) n.el.style.zIndex=z; if(n.it) zOfUid.set(n.it.uid,z); if(n.plat!=null) platZ.set(n.plat,z); });
   for(const it of items){ const r=els.get(it.uid); if(!r) continue; const k=DEFS[it.key][2];
     if(k==='rug') r.el.style.zIndex=platZ.has(blk(it))?platZ.get(blk(it))+1:6; else if(k==='wall') r.el.style.zIndex=4;
-    else if(it.on!=null) r.el.style.zIndex=(zOfUid.get(it.on)||20)+1+((Math.floor(it.gx)+Math.floor(it.gy))%2); }   // floor: ของบนจุดวางพิกัดเป็นเศษ zIndex ต้องเป็นจำนวนเต็ม
+    else if(it.on!=null) r.el.style.zIndex=(zOfUid.get(it.on)||20)+1+((Math.floor(it.gx*2)+Math.floor(it.gy*2))%2); }   // floor: ของบนจุดวางพิกัดเป็นเศษ zIndex ต้องเป็นจำนวนเต็ม
 }
 
 /* ================= ของในบ้าน ================= */
@@ -1046,13 +1046,17 @@ function hostAt(lx,ly,ignore){ // ของเล็ก: หาโต๊ะท�
     const hz=itemLift(o);
     for(const sp of spotsOf(o)){ const p=scr(sp.x,sp.y), d=Math.hypot(p.x-lx,p.y-sp.z-hz-ly);   // จุดวาง (หลุมเตา): ใกล้นิ้วพอ = ดูดเข้าจุด · ชนะผิวปกติ
       if(d<CW*.75){ const key=(b.x0+b.y0)*1000+sp.z+500-d; if(!best||key>best.k) best={host:o,b,gx:Math.round((sp.x-.5)*100)/100,gy:Math.round((sp.y-.5)*100)/100,k:key,spot:1}; } }
-    for(const r of surfsOf(o)){ const {gx,gy}=toCell(lx,ly+r.z+hz), cx=Math.floor(gx), cy=Math.floor(gy);
-      if(!cellOn(o,r,cx,cy)) continue;
-      // ซ้อนกันหลายชิ้น: เลือกชิ้นที่อยู่หน้าสุด แล้วผิวที่สูงสุด
-      const key=(b.x0+b.y0)*1000+r.z; if(!best || key>best.k) best={host:o,b,gx:cx,gy:cy,k:key}; } }
+    for(const r of surfsOf(o)){ const {gx,gy}=toCell(lx,ly+r.z+hz), cx=Math.round((gx-.5)*2)/2, cy=Math.round((gy-.5)*2)/2;   // ของเล็กวางทีละครึ่งช่อง (ผิวเล็กอย่างหลังตู้เย็นได้หลายจุด ไม่ดีดออก)
+      let px=cx, py=cy;
+      if(!cellOn(o,r,cx,cy)){ // นิ้วเลยขอบผิวนิดหน่อย (≤0.6 ช่อง): ดูดเข้าจุดว่างที่ใกล้สุดบนผิวนี้ ไม่ดีดตกพื้น
+        if(gx<r.x0-.6||gx>r.x1+.6||gy<r.y0-.6||gy>r.y1+.6) continue; let bd=1e9;
+        for(let x=Math.floor(r.x0*2)/2;x<r.x1;x+=.5) for(let y=Math.floor(r.y0*2)/2;y<r.y1;y+=.5){ if(!cellOn(o,r,x,y)) continue; const d=Math.hypot(x+.5-gx,y+.5-gy); if(d<bd){ bd=d; px=x; py=y; } }
+        if(bd===1e9) continue; }
+      // ซ้อนกันหลายชิ้น: เลือกชิ้นที่อยู่หน้าสุด แล้วผิวที่สูงสุด · จุดที่ดูดจากนอกขอบได้คะแนนรองจากที่ชี้ตรง
+      const key=(b.x0+b.y0)*1000+r.z-(px===cx&&py===cy?0:.5); if(!best || key>best.k) best={host:o,b,gx:px,gy:py,k:key}; } }
   return best;
 }
-function freeOnHost(host,gx,gy,ignore){ return !items.some(o=>o.on===host.uid && !ignore.has(o.uid) && o.gx===gx && o.gy===gy); }
+function freeOnHost(host,gx,gy,ignore){ return !items.some(o=>o.on===host.uid && !ignore.has(o.uid) && Math.hypot(o.gx-gx,o.gy-gy)<.7); }   // ของเล็กกว้าง ~0.7 ช่อง: ห่างกัน ≥0.7 ไม่ทับ
 
 /* ================= เริ่มต้นห้อง ================= */
 function starter(){
@@ -1384,7 +1388,7 @@ function drawCook(it){ const r=els.get(it.uid); if(!r) return; const c=it.cook, 
 function finishCook(it){ const key=it.cook.key, name=recipeOf(key).name; it.cook=null; drawCook(it);
   // วางจานบนผิวว่าง: เตาก่อน แล้วโต๊ะที่ใกล้สุด
   const hosts=[it,...items.filter(o=>o!==it&&surfsOf(o).length).sort((a,b)=>Math.hypot(a.gx-it.gx,a.gy-it.gy)-Math.hypot(b.gx-it.gx,b.gy-it.gy))];
-  for(const h of hosts) for(const s of surfsOf(h)) for(let x=Math.floor(s.x0);x<s.x1;x++) for(let y=Math.floor(s.y0);y<s.y1;y++){
+  for(const h of hosts) for(const s of surfsOf(h)) for(let x=Math.floor(s.x0*2)/2;x<s.x1;x+=.5) for(let y=Math.floor(s.y0*2)/2;y<s.y1;y+=.5){
     if(!cellOn(h,s,x,y)||!freeOnHost(h,x,y,new Set())) continue;
     const d=addItem({key,gx:x,gy:y,on:h.uid}); place(d); anim(els.get(d.uid).el,'boing'); commit(); toast(name+'เสร็จแล้ว วางไว้บน'+DEFS[h.key][0],1800); return; }
   commit(); toast(name+'เสร็จแล้ว · ไม่มีที่วาง หยิบจากกล่องของหมวดครัวได้',2200); }
@@ -1617,7 +1621,7 @@ function beginDrag(src,e0,ev0){
   // ของชิ้นเล็ก: ผิวโต๊ะ/ชั้น/หลุมเตาทุกจุดที่ว่าง ขึ้นเขียวจาง (บนผิวจริง ยกตามความสูงผิว) + ช่องพื้นว่าง
   const tops=[];
   if(kind==='small'){ for(const o of items){ if(ignore.has(o.uid)) continue; const hz=itemLift(o);
-      for(const r of surfsOf(o)) for(let x=Math.floor(r.x0);x<r.x1;x++) for(let y=Math.floor(r.y0);y<r.y1;y++) if(cellOn(o,r,x,y)&&freeOnHost(o,x,y,ignore)) tops.push({x0:x,x1:x+1,y0:y,y1:y+1,z:r.z+hz,hz:o});
+      for(const r of surfsOf(o)) for(let x=Math.floor(r.x0*2)/2;x<r.x1;x+=.5) for(let y=Math.floor(r.y0*2)/2;y<r.y1;y+=.5) if(cellOn(o,r,x,y)&&freeOnHost(o,x,y,ignore)) tops.push({x0:x+.3,x1:x+.7,y0:y+.3,y1:y+.7,z:r.z+hz,hz:o});
       for(const sp of spotsOf(o)) if(freeOnHost(o,Math.round((sp.x-.5)*100)/100,Math.round((sp.y-.5)*100)/100,ignore)) tops.push({sp,z:sp.z+hz}); }
     for(const [k] of GEO.cells){ const [x,y]=k.split(',').map(Number); if(fitsFloor(key,x,y,false,ignore)) spots.push([x,y]); } }
   const drawTops=()=>{ if(!tops.length) return; sh.save(); sh.fillStyle='rgba(79,174,106,.38)';
@@ -1634,7 +1638,7 @@ function beginDrag(src,e0,ev0){
       sh.beginPath(); Q.forEach((p,i)=>i?sh.lineTo(p.x,p.y):sh.moveTo(p.x,p.y)); sh.closePath(); sh.fill(); return; }
     if(cand.on!=null){ const host=items.find(o=>o.uid===cand.on), hz=itemLift(host), e=zOn(host,cand.gx,cand.gy)+hz, keep=sh.fillStyle;
       sh.fillStyle=cand.ok?'rgba(79,174,106,.22)':'rgba(226,86,107,.22)';
-      for(const r of surfsOf(host)) for(let x=Math.floor(r.x0);x<r.x1;x++) for(let y=Math.floor(r.y0);y<r.y1;y++) if(cellOn(host,r,x,y)) poly({x0:x,x1:x+1,y0:y,y1:y+1},r.z+hz);
+      for(const r of surfsOf(host)) for(let x=Math.floor(r.x0*2)/2;x<r.x1;x+=.5) for(let y=Math.floor(r.y0*2)/2;y<r.y1;y+=.5) if(cellOn(host,r,x,y)) poly({x0:x+.3,x1:x+.7,y0:y+.3,y1:y+.7},r.z+hz);
       for(const sp of spotsOf(host)){ const p=scr(sp.x,sp.y); sh.beginPath(); sh.ellipse(p.x,p.y-sp.z-hz,CW*.42,CW*.42*ISO,0,0,7); sh.fill(); }
       sh.fillStyle=keep; b={x0:cand.gx,x1:cand.gx+1,y0:cand.gy,y1:cand.gy+1}; poly(b,e); }
     else if(kind==='rug'){ // พรม: เงาเขียวเป็นรูปร่างพรมจริง (ภาพแบน) ไม่ใช่ช่องสี่เหลี่ยม
