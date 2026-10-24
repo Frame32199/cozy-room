@@ -714,12 +714,13 @@ const DEFS = {
   'fridge-modern':['ตู้เย็น','kitchen','floor',0,0,'wardrobe',{fw:2,fd:3}],
   'fridge-retro':['ตู้เย็นเรโทร','kitchen-old','floor',0,0,'wardrobe',{fw:3,fd:2}],   // แบบการ์ตูน มุมไม่ตรง — เลิกขึ้นกล่อง (หมวด kitchen-old ไม่มีแท็บ) แต่ห้องที่วางไว้แล้วยังเห็น
   'oven-stove':['ตู้เตาอบ','kitchen','floor',0,0,'cook',{fw:2,fd:4,surf:[[0.2,0.3,1.9,3.9,76]]}],
-  'kitchen-island':['เกาะครัว','kitchen','floor',0,0,'squash',{fw:3,fd:2,surf:[[0.1,0,1.9,2,54]]}],
+  'kitchen-island2':['เกาะครัว','kitchen','floor',0,0,'squash',{fw:6,fd:3}],   // แบบไม่มีเก้าอี้ สูง 90 ซม. เท่าเคาน์เตอร์ (specs.json) · เก้าอี้สูงแยกชิ้น
+  'kitchen-island':['เกาะครัวมีเก้าอี้','kitchen-old','floor',0,0,'squash',{fw:3,fd:2,surf:[[0.1,0,1.9,2,54]]}],
   'wall-cabinet':['ตู้แขวน','kitchen','wall',0,0,'wobble',{w:4,nat:'R'}],
   'dish-shelf':['ชั้นวางจาน','kitchen','wall',0,0,'wobble',{w:4,nat:'L'}],
   'pan-rail':['ราวแขวนกระทะ','kitchen','wall',0,0,'wobble',{w:4,nat:'R'}],
   'range-hood':['เครื่องดูดควัน','kitchen-old','wall',0,0,'wobble',{w:3,nat:'L'}],
-  'range-hood2':['เครื่องดูดควัน','kitchen','wall',0,0,'wobble',{w:3.4,nat:'R'}],
+  'range-hood2':['เครื่องดูดควัน','kitchen','wall',0,0,'wobble',{w:5.2,nat:'L'}],   // ภาพวาดหันหลังชิดผนังซ้าย (ขอบที่ยาวคือแนวลึก ตัววัด wall-nat หลง) · w 5.2 = กว้างตามผนัง ~100 ซม. เท่าเตา
   'jar-rail':['ชั้นโหลแก้ว','kitchen','wall',0,0,'wobble',{w:4.5,nat:'L'}],
   'kettle':['กาต้มน้ำ','kitchen','small',0,0,'steam',{w:.8}],
   'microwave':['ไมโครเวฟ','kitchen','small',0,0,'squash',{w:1.3}],
@@ -844,7 +845,9 @@ function wallColOf(it){ const bi=floorAt(...wallCell(it)); return (WALLS[blockSt
 function clampWall(it){ const hw=DEFS[it.key][3]/(2*CW), wa=it.wa||0;
   const rs=GEO.runs.filter(r=>r.tall&&r.side===it.wall&&r.c===wa&&r.a1-r.a0>=2*hw&&r.a0<it.u+hw&&r.a1>it.u-hw); if(!rs.length) return false;
   const mid=r=>Math.abs((r.a0+r.a1)/2-it.u), r=rs.sort((a,b)=>mid(a)-mid(b))[0]; it.u=Math.max(r.a0+hw,Math.min(r.a1-hw,it.u));
-  const top=wallRoom(it); if(top<0) return false; it.v=Math.min(it.v||0,top); return true; }
+  const top=wallRoom(it); if(top<0) return false; it.v=Math.min(it.v||0,top);
+  if(DEFS[it.key][5]!=='door'){ const B=wallBox(it.key,it.wall,it.u,it.v), mn=wallFloorMin(it.key,it.wall,wa,B.u0,B.u1,it); if(B.v0<mn) it.v=Math.min(top,it.v+mn-B.v0); }
+  return true; }
 // ของติดผนังหลังห้องเปลี่ยนรูป: ดันให้อยู่ในช่วงผนังเดิม → ไม่ได้ (หรือเป็นประตูที่หน้าประตูมีของขวาง) ก็ย้ายไปที่ว่าง
 function wallFix(it){ const door=DEFS[it.key][5]==='door', keep={u:it.u,v:it.v};
   if(clampWall(it) && (!door || doorFits(it.key,it.wall,it.wa,it.u,it))) return true;
@@ -865,6 +868,15 @@ const boxHit=(p,q)=>p.u0<q.u1-.04&&q.u0<p.u1-.04&&p.v0<q.v1-1&&q.v0<p.v1-1;
 // ทับของติดผนังชิ้นอื่นบนผนังเดียวกันไหม (เทียบกรอบเนื้อภาพจริง ไม่ใช่ขนาดภาพ)
 function wallHit(key,side,wa,u,v,ignore){ const B=wallBox(key,side,u,v);
   return items.some(o=>o!==ignore&&DEFS[o.key]&&DEFS[o.key][2]==='wall'&&o.wall===side&&(o.wa||0)===(wa||0)&&boxHit(B,wallBox(o.key,o.wall,o.u,o.v||0))); }
+// ของติดผนังต้องอยู่เหนือเฟอร์นิเจอร์ที่ตั้งชิดผนังข้างใต้ (ของจริงแขวนทับเคาน์เตอร์ไม่ได้) · เครื่องดูดควันเหนือเตา ≥ 65 ซม.
+// คืนค่า v ต่ำสุดที่ขอบล่างจริงของภาพ (wallBox.v0) ลงได้ (px เหนือพื้น)
+const PXCM=WV/25, isHood=k=>k.startsWith('range-hood');
+function wallFloorMin(key,side,wa,u0,u1,ignore){ let m=0;
+  for(const o of items){ if(o===ignore||o.on!=null) continue; const d=DEFS[o.key]; if(!d||d[2]!=='floor'||d.topCm==null) continue; const b=boxOf(o);
+    if(side==='R'?b.y0>(wa||0)+.5:b.x0>(wa||0)+.5) continue;
+    const a0=side==='R'?b.x0:b.y0, a1=side==='R'?b.x1:b.y1; if(a1<=u0+.05||a0>=u1-.05) continue;
+    m=Math.max(m,(d.topCm+(isHood(key)&&d[5]==='cook'?65:5))*PXCM); }
+  return m; }
 // ลากของติดผนัง: หาช่วงผนังสูงที่ใกล้นิ้วที่สุด
 function wallPick(lx,ly,d){ const hw=d[3]/(2*CW); let best=null;
   for(const r of GEO.runs){ if(!r.tall||r.a1-r.a0<2*hw+.4) continue;
@@ -1699,8 +1711,11 @@ function beginDrag(src,e0,ev0){
             if(!(B2.u0<Q.u1-.04&&Q.u0<B2.u1-.04)) continue;
             for(const c of [v+Q.v1-B2.v0, v+Q.v0-B2.v1]) if(c>=0&&c<=top&&Math.abs(c-v)<=hh&&!wallHit(key,side,wa,u,c,it)&&(!best||Math.abs(c-v)<Math.abs(best-v))) best=c; }
           if(best!=null) v=best; } }
+      if(isHood(key)){ for(const o of items){ if(o.on!=null||DEFS[o.key][5]!=='cook') continue; const b=boxOf(o); if(side==='R'?b.y0>wa+.5:b.x0>wa+.5) continue;
+          const c=side==='R'?(b.x0+b.x1)/2:(b.y0+b.y1)/2, B0=wallBox(key,side,u,v), du=c-(B0.u0+B0.u1)/2; if(Math.abs(du)<1.6&&u+du>=r.a0+hw&&u+du<=r.a1-hw) u+=du; } }
+      if(d[5]!=='door'){ const B1=wallBox(key,side,u,v), mn=wallFloorMin(key,side,wa,B1.u0,B1.u1,it); if(B1.v0<mn) v+=mn-B1.v0; }
       const base2=wallBase(side,wa,u), g={left:Math.round(base2.x-d[3]/2),top:Math.round(base2.y-v-d[4]+d[3]*ISO/2),w:d[3],h:d[4]};
-      return {wall:side,wa,u,v,ok:!wallHit(key,side,wa,u,v,it) && (d[5]!=='door' || doorFits(key,side,wa,u,it)),g};
+      return {wall:side,wa,u,v,ok:v<=top && !wallHit(key,side,wa,u,v,it) && (d[5]!=='door' || doorFits(key,side,wa,u,it)),g};
     }
     if(kind==='small'){ const h=hostAt(lx,ly-2,ignore); if(h){ return {gx:h.gx,gy:h.gy,on:h.host.uid,ok:freeOnHost(h.host,h.gx,h.gy,ignore)}; } }
     // จุดฐาน = มุมหน้าสุด · พื้นยก: ลองทีละระดับจากสูงลงต่ำ เอาระดับแรกที่ฐานอยู่บนพื้นระดับนั้นพอดี
@@ -1886,6 +1901,8 @@ await Promise.all(Object.keys(DEFS).map(k=>new Promise(res=>{ const im=new Image
     o.fw=m.fw; o.fd=m.fd; d.round=!!m.round; const s=1/m.res; d[3]=m.w*s; d[4]=m.h*s; d.base={xl:m.xl*s, xr:m.xr*s, yb:m.yb*s}; d.src=IMG+'fit/'+k+'.png';
   } else { const w=(d[2]==='floor'||d[2]==='rug') ? ((o.fw||1)+(o.fd||1))*CW : (o.w||1)*CW; d[3]=w; d[4]=w*im.naturalHeight/im.naturalWidth; }
   res(); }; im.onerror=()=>{ delete DEFS[k]; res(); }; im.src=(DEFS[k][6]||{}).gen?(DEFS[k].src=doorSeamURL('#efebe5')):IMG+k+'.png'; })));
+// ความสูงท็อปจริง (ซม.) ของเฟอร์นิเจอร์ที่ปรับตาม specs.json แล้ว → ของติดผนังห้ามลงมาทับ (topCm)
+try{ const SX=await (await fetch('specs.json',{cache:'no-store'})).json(); for(const [k,v] of Object.entries(SX)) if(DEFS[k]){ const t=v.skip?v.front:v.top; if(t!=null) DEFS[k].topCm=t; } }catch(e){}
 // หน้ากากความทึบของแต่ละภาพ (ย่อ ≤160 จุด) ไว้ตัดสินว่าคลิกโดนเนื้อของจริงไหม
 await Promise.all(Object.keys(DEFS).map(k=>new Promise(res=>{ const im=new Image(); im.onload=()=>{
   const sc=Math.min(1,160/Math.max(im.naturalWidth,im.naturalHeight)), w=Math.max(1,Math.round(im.naturalWidth*sc)), h=Math.max(1,Math.round(im.naturalHeight*sc));
